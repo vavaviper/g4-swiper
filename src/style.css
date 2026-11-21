@@ -182,6 +182,7 @@ h1, .sheet h2 { font-size: 32px; line-height: 1.5; font-weight: 600; letter-spac
 .form-actions { display: flex; gap: 12px; margin-top: 8px; }
 .form-actions button { flex: 1; }
 .full-sheet { height: 100dvh; padding: 0; background: #080b0d; }
+.swipe-dismiss { touch-action: none; user-select: none; }
 .full-sheet .sheet-title { background: #20649e; padding: 12px 28px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .today-date { margin-top: -2px; margin-bottom: 20px; font-size: 17px; color: #43484b; }
@@ -208,6 +209,7 @@ h1, .sheet h2 { font-size: 32px; line-height: 1.5; font-weight: 600; letter-spac
 .camera-stage { flex: 1; display: grid; place-items: center; min-height: 220px; }
 .camera-guide { display: grid; place-content: center; justify-items: center; gap: 14px; width: 100%; min-height: 220px; padding: 20px; border: 1px solid #72828c; border-radius: 12px; font-size: 14px; color: #d7e9f4; }
 .camera-controls { padding-top: 18px; display: grid; justify-items: center; gap: 14px; }
+.camera-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; }
 .scan-message { margin: 12px 0 0; background: #1c3550; padding: 10px; border-radius: 8px; font-size: 14px; }
 .file-button { position: relative; display: grid; place-items: center; cursor: pointer; }
 .file-button input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource/poppins/latin-400.css';
 import '@fontsource/poppins/latin-500.css';
@@ -128,14 +128,47 @@ function FoodCard({ item, compact, open, onToggle, onResolve }) {
   </article>;
 }
 
-function Sheet({ title, onClose, children, full = false }) {
+function Sheet({ title, onClose, children, full = false, swipeToClose = false }) {
+  const gesture = useRef(null);
+  const [drag, setDrag] = useState(0);
+
+  function startSwipe(event) {
+    if (!event.isPrimary || event.button !== 0 || event.target.closest('button')) return;
+    gesture.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveSwipe(event) {
+    const start = gesture.current;
+    if (start?.id !== event.pointerId) return;
+    const down = event.clientY - start.y;
+    setDrag(down > Math.abs(event.clientX - start.x) ? down : 0);
+  }
+
+  function endSwipe(event) {
+    const start = gesture.current;
+    if (start?.id !== event.pointerId) return;
+    gesture.current = null;
+    setDrag(0);
+    const down = event.clientY - start.y;
+    if (event.type === 'pointerup' && down >= 64 && down > Math.abs(event.clientX - start.x)) onClose();
+  }
+
   return <div className="backdrop" onClick={onClose}>
     <section className={`sheet ${full ? 'full-sheet' : ''}`} role="dialog" aria-modal="true" aria-labelledby="sheet-title"
+      style={drag ? { transform: `translateY(${drag}px)` } : undefined}
       onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === 'Escape') onClose(); }}>
-      {!full && <div className="handle" />}
-      <div className="sheet-title">
-        <h2 id="sheet-title">{title}</h2>
-        <button autoFocus type="button" className="icon-button" onClick={onClose} aria-label="Close"><Icon name="close" /></button>
+      <div className={swipeToClose ? 'swipe-dismiss' : undefined}
+        onPointerDown={swipeToClose ? startSwipe : undefined}
+        onPointerMove={swipeToClose ? moveSwipe : undefined}
+        onPointerUp={swipeToClose ? endSwipe : undefined}
+        onPointerCancel={swipeToClose ? endSwipe : undefined}
+        onLostPointerCapture={swipeToClose ? endSwipe : undefined}>
+        {!full && <div className="handle" />}
+        <div className="sheet-title">
+          <h2 id="sheet-title">{title}</h2>
+          <button autoFocus type="button" className="icon-button" onClick={onClose} aria-label="Close"><Icon name="close" /></button>
+        </div>
       </div>
       {children}
     </section>
@@ -208,16 +241,16 @@ function Capture({ receipt, active, error, progress, onFile, onManual }) {
     stopStream(stream.current);
   }, []);
 
-  function closeCamera() {
+  const closeCamera = useCallback(() => {
     request.current += 1;
     stopStream(stream.current);
     stream.current = null;
     if (video.current) video.current.srcObject = null;
     setCamera('closed');
     setReady(false);
-  }
+  }, []);
 
-  async function openCamera() {
+  const openCamera = useCallback(async () => {
     setCameraError('');
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError(window.isSecureContext
@@ -252,7 +285,11 @@ function Capture({ receipt, active, error, progress, onFile, onManual }) {
       closeCamera();
       setCameraError(cameraMessage(failure));
     }
-  }
+  }, [closeCamera]);
+
+  useEffect(() => {
+    if (!receipt) openCamera();
+  }, [receipt, openCamera]);
 
   function takePicture() {
     const player = video.current;
@@ -290,9 +327,9 @@ function Capture({ receipt, active, error, progress, onFile, onManual }) {
           const player = event.currentTarget;
           if (player.srcObject === stream.current && player.videoWidth) setReady(true);
         }} />
-      {camera === 'closed' && <div className="camera-guide">
-        <Icon name={receipt ? 'receipt' : 'camera'} />
-        <p>{receipt ? 'Fit the whole receipt in the photo' : 'Take a photo of the food'}</p>
+      {receipt && camera === 'closed' && <div className="camera-guide">
+        <Icon name="receipt" />
+        <p>Fit the whole receipt in the photo</p>
       </div>}
     </div>
     {camera === 'opening' && <p className="scan-message" role="status">Waiting for camera access…</p>}
@@ -300,12 +337,14 @@ function Capture({ receipt, active, error, progress, onFile, onManual }) {
     {cameraError && <p className="scan-message" role="alert">{cameraError}</p>}
     {error && !busy && !cameraError && <p className="scan-message" role="alert">{error}</p>}
     <div className="camera-controls">
-      {camera === 'closed' && <button className="capture-manual" disabled={busy} onClick={openCamera}>Open camera</button>}
+      {receipt && camera === 'closed' && <button className="capture-manual" disabled={busy} onClick={openCamera}>Open camera</button>}
       {camera === 'live' && <button className="shutter" aria-label="Take a picture" disabled={!ready || busy} onClick={takePicture} />}
-      {camera !== 'closed' && <button className="capture-manual" onClick={closeCamera}>Close camera</button>}
-      {cameraError && <label className="file-button upload native-camera">Use phone camera<input type="file" accept="image/*" capture="environment" disabled={busy} onChange={select} /></label>}
-      <label className="file-button upload">Upload a picture<input type="file" accept="image/*" disabled={busy} onChange={select} /></label>
-      {(error || cameraError) && !busy && <button className="capture-manual" onClick={onManual}>Manually enter</button>}
+      <div className="camera-actions">
+        {receipt && camera !== 'closed' && <button className="capture-manual" onClick={closeCamera}>Close camera</button>}
+        {receipt && cameraError && <label className="file-button upload native-camera">Use phone camera<input type="file" accept="image/*" capture="environment" disabled={busy} onChange={select} /></label>}
+        <label className="file-button upload">Upload a picture<input type="file" accept="image/*" disabled={busy} onChange={select} /></label>
+        {receipt && (error || cameraError) && <button className="capture-manual" disabled={busy} onClick={onManual}>Manually enter</button>}
+      </div>
     </div>
   </div>;
 }
@@ -520,7 +559,7 @@ function App() {
         </div>
       </>}
     </main>
-    {overlay === 'menu' && <Sheet title="Add Food" onClose={close}>
+    {overlay === 'menu' && <Sheet title="Add Food" onClose={close} swipeToClose>
       <div className="menu-actions">
         <button className="light" onClick={() => openCapture('receipt')}><Icon name="receipt" />Scan Receipt</button>
         <button className="light" onClick={() => openCapture('photo')}><Icon name="camera" />Take photo</button>
@@ -528,7 +567,7 @@ function App() {
         <button className="light outline" onClick={openManual}><Icon name="edit" />Manually enter</button>
       </div>
     </Sheet>}
-    {(overlay === 'receipt' || overlay === 'photo') && <Sheet title={overlay === 'receipt' ? 'Receipt' : 'Photo'} onClose={close} full>
+    {(overlay === 'receipt' || overlay === 'photo') && <Sheet title={overlay === 'receipt' ? 'Receipt' : 'Photo'} onClose={close} full swipeToClose>
       <Capture key={overlay} receipt={overlay === 'receipt'} active={scan.active} error={scan.error} progress={scan.progress}
         onFile={overlay === 'receipt' ? scanImage : takeFoodPhoto}
         onManual={() => page === 'review' ? setOverlay('add-review') : openManual()} />
